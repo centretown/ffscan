@@ -82,7 +82,7 @@ func mkvContains(fname string, codecs ...string) (ok bool, err error) {
 	}
 
 	defer file.Close()
-	err = mkvparse.ParseSections(file, []mkvparse.ElementID{mkvparse.TracksElement}, &handler)
+	err = mkvparse.ParseSections(file, &handler, []mkvparse.ElementID{mkvparse.TracksElement}...)
 	if err != nil {
 		return
 	}
