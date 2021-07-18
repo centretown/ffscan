@@ -129,14 +129,15 @@ func (b *myBuilder) Format(info os.FileInfo, folder *scan.Folder) (cmd string) {
 
 	switch strings.ToLower(ext) {
 	case ".mkv":
-		ok, err := mkvContains(name, "HEVC", "AAC")
-		if err == nil && ok {
-			// Copy x265/aac and normalize audio.
-			cmd = fmt.Sprintf(ffcpy, name, title, destination, name)
-		} else {
-			// Convert to x265/aac and normalize audio.
-			cmd = fmt.Sprintf(fhevc, name, title, destination, name)
-		}
+		// ok, err := mkvContains(name, "HEVC", "AAC")
+		// Copy x265/aac and normalize audio.
+		// 	if err == nil && ok {
+		// 	cmd = fmt.Sprintf(ffcpy, name, title, destination, name)
+		// } else {
+		// 	cmd = fmt.Sprintf(fhevc, name, title, destination, name)
+		// }
+		// Convert to x265/aac and normalize audio.
+		cmd = fmt.Sprintf(fhevc, name, title, destination, name)
 
 	case ".avi", ".mp4", ".mpeg", ".mpg", ".wmv":
 		// Convert to x265/aac and normalize audio.
