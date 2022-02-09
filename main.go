@@ -96,10 +96,7 @@ type myBuilder struct {
 func (b *myBuilder) Filter(info os.FileInfo) bool {
 	name := info.Name()
 	if info.IsDir() {
-		if name == b.out {
-			return false
-		}
-		return true
+		return name != b.out
 	}
 	ext := strings.ToLower(path.Ext(name))
 	switch ext {
@@ -108,7 +105,7 @@ func (b *myBuilder) Filter(info os.FileInfo) bool {
 		".mpg", ".flac",
 		".mp3", ".srt",
 		".sub", ".idx",
-		".wmv", ".wav":
+		".wmv", ".wav", ".webm":
 		return true
 	}
 	return false
@@ -139,7 +136,7 @@ func (b *myBuilder) Format(info os.FileInfo, folder *scan.Folder) (cmd string) {
 		// Convert to x265/aac and normalize audio.
 		cmd = fmt.Sprintf(fhevc, name, title, destination, name)
 
-	case ".avi", ".mp4", ".mpeg", ".mpg", ".wmv":
+	case ".avi", ".mp4", ".mpeg", ".mpg", ".wmv", ".webm":
 		// Convert to x265/aac and normalize audio.
 		cmd = fmt.Sprintf(fhevc, name, title, destination, title+".mkv")
 
