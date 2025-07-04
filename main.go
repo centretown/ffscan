@@ -39,8 +39,6 @@ import (
 	"os"
 	"path"
 	"strings"
-
-	"github.com/centretown/scan"
 )
 
 var (
@@ -85,7 +83,7 @@ func main() {
 
 	builder := &myBuilder{in: in, out: out, script: script}
 	// build folder information
-	_, err = scan.Build(in, out, script, builder, write, verbose)
+	_, err = Build(in, out, script, builder, write, verbose)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -122,7 +120,7 @@ const (
 	fnorm = `ffmpeg -y -i "%s" -bufsize 1024k -filter:a loudnorm -ab 128k -map_metadata 0 -id3v2_version 3 "%s/%s"` + "\n"
 )
 
-func (b *myBuilder) Format(info os.FileInfo, folder *scan.Folder) (cmd string) {
+func (b *myBuilder) Format(info os.FileInfo, folder *Folder) (cmd string) {
 	destination := folder.Destination
 	name := info.Name()
 	ext := path.Ext(name)

@@ -1,5 +1,3 @@
-github.com/centretown/scan v0.0.0-20190502131902-cd9b08460fee h1:W95zOzZehY0QWuduJtTvUhvcLtQiXs2lOK7rfOyLvc8=
-github.com/centretown/scan v0.0.0-20190502131902-cd9b08460fee/go.mod h1:j9R/Kp5eIrCQ7SV7qpzSWwNizyA8NcbUbmaZgUhDFFI=
 github.com/golang-collections/collections v0.0.0-20130729185459-604e922904d3 h1:zN2lZNZRflqFyxVaTIU61KNKQ9C0055u9CAfpmqUvo4=
 github.com/golang-collections/collections v0.0.0-20130729185459-604e922904d3/go.mod h1:nPpo7qLxd6XL3hWJG/O60sR8ZKfMCiIoNap5GvD12KU=
 github.com/remko/go-mkvparse v0.1.0 h1:hhUYfzfR791h5cnuPr0wZEay09fBuF3oGTQwLGDR4rE=
