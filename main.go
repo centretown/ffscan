@@ -1,35 +1,3 @@
-// Copyright 2018 Dave Marsh. All rights reserved.
-// Use of this source code is governed by a BSD-style
-// license that can be found in the LICENSE file.
-
-// ffscan project main.go
-
-/*
-ffscan:
-Scans for ".avi", ".mp4", ".mpeg", ".mpg" and ".mkv" file extensions and generates
-bash scripts that use ffmpeg to convert these files to HEVC/AAC files with an ".mkv"
-extension.
-
-Scans for ".flac" and ".mp3" file extensions and generates bash scripts that use ffmpeg
-to convert these files to mp3.
-
-The volume in all audio streams are normalized or brought to a standard level.
-
-The folder structure is preserved under the destination base folder as designated by the -o flag.
-
-The scripts are hierarchical, in that running a generated script will also run the generated scripts
-in each of its descendant folders.
-
-Usage:
-
-	-h help
-	-o string
-	      output folder (default "gen")
-	-s string
-	      name of output script (default "run")
-	-v    verbose: display all messages
-	-w    write: create output folders and write shell command scripts (default true)
-*/
 package main
 
 import (
@@ -48,7 +16,7 @@ var (
 	scriptHelp  = "name of output generating script"
 	write       = true
 	writeHelp   = "write output folders and scripts"
-	verbose     = false
+	verbose     = true
 	verboseHelp = "display all messages"
 	iscopy      = false
 	iscopyHelp  = "copy only"
@@ -69,11 +37,9 @@ func main() {
 	)
 
 	flag.Parse()
-	//if verbose {
 	flag.VisitAll(func(f *flag.Flag) {
 		fmt.Printf("%s=%v\n", f.Name, f.Value)
 	})
-	//}
 
 	// in folder is current working directory
 	in, err = os.Getwd()

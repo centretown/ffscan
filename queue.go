@@ -18,9 +18,3 @@ func deq() (in, out string) {
 	in, out = next.in, next.out
 	return
 }
-
-func clearQ() {
-	for foldersQ.Len() > 0 {
-		foldersQ.Dequeue()
-	}
-}

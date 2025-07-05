@@ -3,8 +3,9 @@ package main
 import (
 	"fmt"
 	"io/fs"
+	"log"
 	"os"
-	"path"
+	"path/filepath"
 )
 
 type Folder struct {
@@ -29,28 +30,40 @@ func Build(inputBase, outputBase, scriptName string,
 	builder Builder, generate bool, verbose bool) (folders Folders, err error) {
 
 	// clear queue
-	defer clearQ()
+	defer func() {
+		if foldersQ != nil {
+			for foldersQ.Len() > 0 {
+				foldersQ.Dequeue()
+			}
+		}
+	}()
 
 	if verbose {
 		showMessages = true
-		defer displayError(&err)
+		defer func(perr error) {
+			if perr != nil {
+				log.Printf("%s\n", perr.Error())
+			}
+		}(err)
 	}
 
-	msg(`Build(in: "%v", write: %v, verbose: %v)`, inputBase, generate, verbose)
+	log.Printf("Build in: %v, write: %v, verbose: %v\n", inputBase, generate, verbose)
 
 	err = os.Chdir(inputBase)
 	if err != nil {
 		return
 	}
 
-	if !path.IsAbs(outputBase) {
+	if !filepath.IsAbs(outputBase) {
 		// ensure absolute output folder
-		outputBase = path.Join(inputBase, outputBase)
+		log.Println(inputBase, outputBase)
+		outputBase = filepath.Join(inputBase, outputBase)
+		log.Println("result after join", outputBase)
 	}
 
 	if generate {
 		// create base output folder if necessary
-		msg("create base output folder %v", outputBase)
+		log.Printf("create base output folder %v\n", outputBase)
 		err = makeDir(outputBase)
 		if err != nil {
 			return
@@ -58,7 +71,7 @@ func Build(inputBase, outputBase, scriptName string,
 	}
 
 	// build folder structure from base
-	outputBase = path.Join(outputBase, path.Base(inputBase))
+	outputBase = filepath.Join(outputBase, filepath.Base(inputBase))
 
 	enq(inputBase, outputBase)
 
@@ -68,21 +81,20 @@ func Build(inputBase, outputBase, scriptName string,
 		return
 	}
 
-	// generate scripts
-	msg("generate scripts")
+	log.Println("generate scripts")
 	folders.generate(builder)
 
 	os.Chdir(inputBase)
 	if generate {
-		// create output folder
-		msg("create output folder %v", outputBase)
+		log.Printf("create output folder %v\n", outputBase)
 		err = makeDir(outputBase)
 		if err != nil {
 			return
 		}
-		msg("write script and create output folders")
+		log.Println("write script and create output folders")
 		err = folders.Write()
 		if err != nil {
+			log.Println("write script", err)
 			return
 		}
 	}
@@ -97,7 +109,7 @@ func scanQ(script string, builder Builder) (fs Folders, err error) {
 	// scan and filter each folder in the tree
 	for foldersQ.Len() > 0 {
 		qi, qo = deq()
-		msg("scan and filter %v", qi)
+		log.Printf("scan and filter %v\n", qi)
 		folder, err = scanFolder(qi, qo, script, builder)
 		if err != nil {
 			return
@@ -124,30 +136,32 @@ func scanFolder(in, out, script string, builder Builder) (folder *Folder, err er
 	}
 
 	folder = &Folder{Source: in, Destination: out, Script: script}
-	msg("scanning: %s", in)
+	log.Printf("scanning: %s\n", in)
 	for _, f := range files {
 		name = f.Name()
-		msg("scan:%s", name)
+		log.Printf("scan:%s\n", name)
 		info, _ := f.Info()
 		if builder.Filter(info) {
 			if f.IsDir() {
-				inc, outc = path.Join(in, name), path.Join(out, name)
+				inc, outc = filepath.Join(in, name), filepath.Join(out, name)
 				enq(inc, outc)
 				folder.Children = append(folder.Children, inc)
-				msg("folder:%s selected.", name)
+				log.Printf("folder:%s selected\n", name)
 			} else {
 				folder.Files = append(folder.Files, f)
-				msg("file:%s selected.", name)
+				log.Printf("file:%s selected\n", name)
 			}
 		}
 	}
-	msg("children:%v", folder.Children)
+	log.Printf("children:%v", folder.Children)
 	return
 }
 
 // format to run child scripts
 var (
-	formatChild = `cd "%s"` + "\n./%s\ncd ..\n"
+	// formatChild = `cd "%s\n"` + string(os.PathSeparator) + "%s\ncd ..\n"
+	// formatChild = `cd "%s\n"` + string(os.PathSeparator) + "%s\ncd ..\n"
+	formatChild = `cd "%s"` + "\n.\\%s\ncd ..\n"
 )
 
 // generate - create a script for the selected files and folders
@@ -163,26 +177,28 @@ func (f *Folder) generate(b Builder) {
 	}
 
 	f.Code = cmd
-	msg("generate '%s/%s\n%s'", f.Source, f.Script, f.Code)
+	log.Printf("generate '%s/%s\n%s'\n", f.Source, f.Script, f.Code)
 }
 
-// Write - create folders and write output files
-func (f *Folder) Write(cmd []byte) (err error) {
-	msg("navigate to %s", f.Source)
+func (f *Folder) WriteCmd(cmd []byte) (err error) {
+	log.Printf("navigate to %s\n", f.Source)
 	err = os.Chdir(f.Source)
 	if err != nil {
 		return
 	}
 
-	msg("write script '%s'", f.Script)
+	log.Printf("write script '%s'\n", f.Script)
 	err = os.WriteFile(f.Script, cmd, os.ModeAppend|os.ModePerm)
 	if err != nil {
 		return
 	}
 
-	msg("verify/create destination %s", f.Destination)
 	err = makeDir(f.Destination)
+	if err != nil {
+		log.Fatal(err)
+	}
 
+	log.Printf("verify/create destination %s OK\n", f.Destination)
 	return
 }
 
@@ -197,7 +213,7 @@ func (fs Folders) generate(b Builder) (cmd string) {
 // Write - folders and output files
 func (fs Folders) Write() (err error) {
 	for _, f := range fs {
-		err = f.Write([]byte(f.Code))
+		err = f.WriteCmd([]byte(f.Code))
 		if err != nil {
 			return
 		}
@@ -211,21 +227,19 @@ func makeDir(dir string) (err error) {
 	info, err = os.Stat(dir)
 	if err != nil {
 		err = os.Mkdir(dir, os.ModeDir|os.ModePerm)
-	} else if !info.IsDir() {
+		if err != nil {
+			log.Printf("makeDir %s\n%v\n", dir, err)
+		}
+		return
+	}
+
+	if info == nil {
+		log.Printf("makedir: No Info")
+		return
+	}
+
+	if !info.IsDir() {
 		err = fmt.Errorf("%s exists but is not a directory", dir)
 	}
 	return
-}
-
-// msg - verbose messages
-func msg(format string, a ...interface{}) {
-	if showMessages {
-		fmt.Printf(format+"\n", a)
-	}
-}
-
-func displayError(err *error) {
-	if *err != nil {
-		fmt.Println(*err)
-	}
 }
