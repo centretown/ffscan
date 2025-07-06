@@ -22,12 +22,15 @@ var (
 	iscopyHelp  = "copy only"
 )
 
+var IsWindows bool
+
 func init() {
 	flag.BoolVar(&iscopy, "c", iscopy, iscopyHelp)
 	flag.StringVar(&out, "o", out, outHelp)
 	flag.StringVar(&script, "s", script, scriptHelp)
 	flag.BoolVar(&write, "w", write, writeHelp)
 	flag.BoolVar(&verbose, "v", verbose, verboseHelp)
+	IsWindows = os.IsPathSeparator('\\')
 }
 
 func main() {
@@ -50,6 +53,11 @@ func main() {
 	builder := &myBuilder{in: in, out: out, script: script}
 	// build folder information
 	_, err = Build(in, out, script, builder, write, verbose)
+
+	if IsWindows {
+		log.Println("Windows Build")
+	}
+
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -80,10 +88,11 @@ func (b *myBuilder) Filter(info os.FileInfo) bool {
 }
 
 const (
-	fcopy = `cp -n "%s" "%s/%s"` + "\n"
-	ffcpy = `ffmpeg -y -i "%s" -metadata title="%s" -c copy "%s/%s"` + "\n"
-	fhevc = `ffmpeg -y -i "%s" -bufsize 10240k -filter:a loudnorm -metadata title="%s" -c:v libx265 -c:a aac "%s/%s"` + "\n"
-	fnorm = `ffmpeg -y -i "%s" -bufsize 1024k -filter:a loudnorm -ab 128k -map_metadata 0 -id3v2_version 3 "%s/%s"` + "\n"
+	fcopyw = `copy "%s" "%s` + string(os.PathSeparator) + `%s"` + "\n"
+	fcopy  = `cp "%s" "%s` + string(os.PathSeparator) + `%s"` + "\n"
+	ffcpy  = `ffmpeg -y -i "%s" -metadata title="%s" -c copy "%s` + string(os.PathSeparator) + `%s"` + "\n"
+	fhevc  = `ffmpeg -y -i "%s" -bufsize 10240k -filter:a loudnorm -metadata title="%s" -c:v libx265 -c:a aac "%s` + string(os.PathSeparator) + `%s"` + "\n"
+	fnorm  = `ffmpeg -y -i "%s" -bufsize 1024k -filter:a loudnorm -ab 128k -map_metadata 0 -id3v2_version 3 "%s` + string(os.PathSeparator) + `%s"` + "\n"
 )
 
 func (b *myBuilder) Format(info os.FileInfo, folder *Folder) (cmd string) {
@@ -94,14 +103,6 @@ func (b *myBuilder) Format(info os.FileInfo, folder *Folder) (cmd string) {
 
 	switch strings.ToLower(ext) {
 	case ".mkv":
-		// ok, err := mkvContains(name, "HEVC", "AAC")
-		// Copy x265/aac and normalize audio.
-		// 	if err == nil && ok {
-		// 	cmd = fmt.Sprintf(ffcpy, name, title, destination, name)
-		// } else {
-		// 	cmd = fmt.Sprintf(fhevc, name, title, destination, name)
-		// }
-		// Convert to x265/aac and normalize audio.
 		if iscopy {
 			cmd = fmt.Sprintf(ffcpy, name, title, destination, name)
 		} else {
@@ -114,7 +115,11 @@ func (b *myBuilder) Format(info os.FileInfo, folder *Folder) (cmd string) {
 
 	case ".srt", ".sub", ".idx":
 		// Copy sub title files if not there already.
-		cmd = fmt.Sprintf(fcopy, name, destination, name)
+		if IsWindows {
+			cmd = fmt.Sprintf(fcopyw, name, destination, name)
+		} else {
+			cmd = fmt.Sprintf(fcopy, name, destination, name)
+		}
 
 	case ".mp3":
 		// normalize audio only

@@ -161,7 +161,8 @@ func scanFolder(in, out, script string, builder Builder) (folder *Folder, err er
 var (
 	// formatChild = `cd "%s\n"` + string(os.PathSeparator) + "%s\ncd ..\n"
 	// formatChild = `cd "%s\n"` + string(os.PathSeparator) + "%s\ncd ..\n"
-	formatChild = `cd "%s"` + "\n.\\%s\ncd ..\n"
+	formatChild  = `cd "%s"` + "/n./%s\ncd ..\n"
+	formatChildw = `cd "%s"` + "\ncall %s\ncd ..\n"
 )
 
 // generate - create a script for the selected files and folders
@@ -173,7 +174,11 @@ func (f *Folder) generate(b Builder) {
 	}
 
 	for _, child := range f.Children {
-		cmd += fmt.Sprintf(formatChild, child, f.Script)
+		if IsWindows {
+			cmd += fmt.Sprintf(formatChildw, child, f.Script)
+		} else {
+			cmd += fmt.Sprintf(formatChild, child, f.Script)
+		}
 	}
 
 	f.Code = cmd
