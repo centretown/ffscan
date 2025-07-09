@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 type Folder struct {
@@ -54,25 +55,10 @@ func Build(inputBase, outputBase, scriptName string,
 		return
 	}
 
-	if !filepath.IsAbs(outputBase) {
-		// ensure absolute output folder
-		log.Println(inputBase, outputBase)
-		outputBase = filepath.Join(inputBase, outputBase)
-		log.Println("result after join", outputBase)
-	}
-
-	if generate {
-		// create base output folder if necessary
-		log.Printf("create base output folder %v\n", outputBase)
-		err = makeDir(outputBase)
-		if err != nil {
-			return
-		}
-	}
+	// create base output folder if necessary
 
 	// build folder structure from base
-	outputBase = filepath.Join(outputBase, filepath.Base(inputBase))
-
+	// outputBase = filepath.Join(outputBase, filepath.Base(inputBase))
 	enq(inputBase, outputBase)
 
 	// scan and filter each folder in the tree
@@ -83,8 +69,48 @@ func Build(inputBase, outputBase, scriptName string,
 
 	log.Println("generate scripts")
 	folders.generate(builder)
-
 	os.Chdir(inputBase)
+
+	if generate {
+		log.Printf("create base output folder %v\n", outputBase)
+		err = makeDir(outputBase)
+		if err != nil {
+			return
+		}
+	}
+
+	sb := &strings.Builder{}
+	for _, fld := range folders {
+		log.Printf("create %s\n", fld.Destination)
+		err = makeDir(fld.Destination)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if len(fld.Files) == 0 {
+			continue
+		}
+		sb.WriteString(`cd "` + fld.Source + `" ` + "\n")
+		sb.WriteString(fld.Code)
+	}
+
+	err = os.Chdir(CurrentDir)
+	if err != nil {
+		return
+	}
+
+	cmd := sb.String()
+	fmt.Print(cmd)
+	if IsWindows {
+		scriptName += ".cmd"
+	}
+	log.Printf("write script '%s' Windows?=%v\n", scriptName, IsWindows)
+	err = os.WriteFile(scriptName, []byte(cmd), os.ModeAppend|os.ModePerm)
+	if err != nil {
+		return
+	}
+
+	return
+
 	if generate {
 		log.Printf("create output folder %v\n", outputBase)
 		err = makeDir(outputBase)
@@ -161,7 +187,7 @@ func scanFolder(in, out, script string, builder Builder) (folder *Folder, err er
 var (
 	// formatChild = `cd "%s\n"` + string(os.PathSeparator) + "%s\ncd ..\n"
 	// formatChild = `cd "%s\n"` + string(os.PathSeparator) + "%s\ncd ..\n"
-	formatChild  = `cd "%s"` + "/n./%s\ncd ..\n"
+	formatChild  = `cd "%s"` + "\n./%s\ncd ..\n"
 	formatChildw = `cd "%s"` + "\ncall %s\ncd ..\n"
 )
 
@@ -173,16 +199,16 @@ func (f *Folder) generate(b Builder) {
 		cmd += b.Format(info, f)
 	}
 
-	for _, child := range f.Children {
-		if IsWindows {
-			cmd += fmt.Sprintf(formatChildw, child, f.Script)
-		} else {
-			cmd += fmt.Sprintf(formatChild, child, f.Script)
-		}
-	}
+	// for _, child := range f.Children {
+	// 	if IsWindows {
+	// 		cmd += fmt.Sprintf(formatChildw, child, f.Script)
+	// 	} else {
+	// 		cmd += fmt.Sprintf(formatChild, child, f.Script)
+	// 	}
+	// }
 
 	f.Code = cmd
-	log.Printf("generate '%s/%s\n%s'\n", f.Source, f.Script, f.Code)
+	// log.Printf("generate '%s/%s\n%s'\n", f.Source, f.Script, f.Code)
 }
 
 func (f *Folder) WriteCmd(cmd []byte) (err error) {

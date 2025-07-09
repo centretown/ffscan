@@ -5,15 +5,18 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path"
-	"strings"
+	"path/filepath"
 )
 
+const blotto = "ftp://192.168.10.161/Public/Shared%20Videos"
+
 var (
-	out         = "gen"
+	inDir       = ""
+	inHelp      = "input folder root"
+	outDir      = "gen"
 	outHelp     = "output folder root"
 	script      = "run"
-	scriptHelp  = "name of output generating script"
+	scriptHelp  = "name of output script"
 	write       = true
 	writeHelp   = "write output folders and scripts"
 	verbose     = true
@@ -22,11 +25,15 @@ var (
 	iscopyHelp  = "copy only"
 )
 
-var IsWindows bool
+var (
+	IsWindows  bool
+	CurrentDir string
+)
 
 func init() {
 	flag.BoolVar(&iscopy, "c", iscopy, iscopyHelp)
-	flag.StringVar(&out, "o", out, outHelp)
+	flag.StringVar(&inDir, "i", inDir, inHelp)
+	flag.StringVar(&outDir, "o", outDir, outHelp)
 	flag.StringVar(&script, "s", script, scriptHelp)
 	flag.BoolVar(&write, "w", write, writeHelp)
 	flag.BoolVar(&verbose, "v", verbose, verboseHelp)
@@ -35,8 +42,8 @@ func init() {
 
 func main() {
 	var (
-		in  string
-		err error
+		err  error
+		info os.FileInfo
 	)
 
 	flag.Parse()
@@ -45,89 +52,40 @@ func main() {
 	})
 
 	// in folder is current working directory
-	in, err = os.Getwd()
+	CurrentDir, err = os.Getwd()
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	builder := &myBuilder{in: in, out: out, script: script}
+	if len(inDir) == 0 {
+		inDir = CurrentDir
+	} else {
+		inDir, err = filepath.Abs(inDir)
+	}
+
+	info, err = os.Stat(inDir)
+	if os.IsNotExist(err) {
+		log.Fatalf("%s does not exist\n", inDir)
+		return
+	}
+
+	if !info.IsDir() {
+		log.Fatalf("%s is not a directory", inDir)
+		return
+	}
+
+	// ensure absolute output folder
+	if !filepath.IsAbs(outDir) {
+		log.Println(CurrentDir, outDir)
+		outDir = filepath.Join(CurrentDir, outDir)
+		log.Println("result after join", outDir)
+	}
+
+	builder := &FFBuilder{in: inDir, out: outDir, script: script}
 	// build folder information
-	_, err = Build(in, out, script, builder, write, verbose)
-
-	if IsWindows {
-		log.Println("Windows Build")
-	}
+	_, err = Build(inDir, outDir, script, builder, write, verbose)
 
 	if err != nil {
 		log.Fatalln(err)
 	}
-}
-
-type myBuilder struct {
-	in     string
-	out    string
-	script string
-}
-
-func (b *myBuilder) Filter(info os.FileInfo) bool {
-	name := info.Name()
-	if info.IsDir() {
-		return name != b.out
-	}
-	ext := strings.ToLower(path.Ext(name))
-	switch ext {
-	case ".mkv", ".avi",
-		".mp4", ".mpeg",
-		".mpg", ".flac",
-		".mp3", ".srt",
-		".sub", ".idx",
-		".wmv", ".wav", ".webm":
-		return true
-	}
-	return false
-}
-
-const (
-	fcopyw = `copy "%s" "%s` + string(os.PathSeparator) + `%s"` + "\n"
-	fcopy  = `cp "%s" "%s` + string(os.PathSeparator) + `%s"` + "\n"
-	ffcpy  = `ffmpeg -y -i "%s" -metadata title="%s" -c copy "%s` + string(os.PathSeparator) + `%s"` + "\n"
-	fhevc  = `ffmpeg -y -i "%s" -bufsize 10240k -filter:a loudnorm -metadata title="%s" -c:v libx265 -c:a aac "%s` + string(os.PathSeparator) + `%s"` + "\n"
-	fnorm  = `ffmpeg -y -i "%s" -bufsize 1024k -filter:a loudnorm -ab 128k -map_metadata 0 -id3v2_version 3 "%s` + string(os.PathSeparator) + `%s"` + "\n"
-)
-
-func (b *myBuilder) Format(info os.FileInfo, folder *Folder) (cmd string) {
-	destination := folder.Destination
-	name := info.Name()
-	ext := path.Ext(name)
-	title := strings.TrimSuffix(name, ext)
-
-	switch strings.ToLower(ext) {
-	case ".mkv":
-		if iscopy {
-			cmd = fmt.Sprintf(ffcpy, name, title, destination, name)
-		} else {
-			cmd = fmt.Sprintf(fhevc, name, title, destination, name)
-		}
-
-	case ".avi", ".mp4", ".mpeg", ".mpg", ".wmv", ".webm":
-		// Convert to x265/aac and normalize audio.
-		cmd = fmt.Sprintf(fhevc, name, title, destination, title+".mkv")
-
-	case ".srt", ".sub", ".idx":
-		// Copy sub title files if not there already.
-		if IsWindows {
-			cmd = fmt.Sprintf(fcopyw, name, destination, name)
-		} else {
-			cmd = fmt.Sprintf(fcopy, name, destination, name)
-		}
-
-	case ".mp3":
-		// normalize audio only
-		cmd = fmt.Sprintf(fnorm, name, destination, name)
-
-	case ".flac", ".wav":
-		// convert to mp3
-		cmd = fmt.Sprintf(fnorm, name, destination, title+".mp3")
-	}
-	return
 }
