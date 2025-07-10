@@ -19,32 +19,32 @@ var (
 	scriptHelp  = "name of output script"
 	write       = true
 	writeHelp   = "write output folders and scripts"
-	verbose     = true
+	verbose     = false
 	verboseHelp = "display all messages"
 	iscopy      = false
 	iscopyHelp  = "copy only"
+	isH264      = false
+	isH264Help  = "use libx264 to encode"
 )
 
 var (
-	IsWindows  bool
+	IsWindows  = os.IsPathSeparator('\\')
 	CurrentDir string
 )
-
-func init() {
-	flag.BoolVar(&iscopy, "c", iscopy, iscopyHelp)
-	flag.StringVar(&inDir, "i", inDir, inHelp)
-	flag.StringVar(&outDir, "o", outDir, outHelp)
-	flag.StringVar(&script, "s", script, scriptHelp)
-	flag.BoolVar(&write, "w", write, writeHelp)
-	flag.BoolVar(&verbose, "v", verbose, verboseHelp)
-	IsWindows = os.IsPathSeparator('\\')
-}
 
 func main() {
 	var (
 		err  error
 		info os.FileInfo
 	)
+
+	flag.BoolVar(&iscopy, "c", iscopy, iscopyHelp)
+	flag.StringVar(&inDir, "i", inDir, inHelp)
+	flag.StringVar(&outDir, "o", outDir, outHelp)
+	flag.StringVar(&script, "s", script, scriptHelp)
+	flag.BoolVar(&write, "w", write, writeHelp)
+	flag.BoolVar(&verbose, "v", verbose, verboseHelp)
+	flag.BoolVar(&isH264, "f", isH264, isH264Help)
 
 	flag.Parse()
 	flag.VisitAll(func(f *flag.Flag) {
@@ -76,16 +76,29 @@ func main() {
 
 	// ensure absolute output folder
 	if !filepath.IsAbs(outDir) {
-		log.Println(CurrentDir, outDir)
+		msgln(CurrentDir, outDir)
 		outDir = filepath.Join(CurrentDir, outDir)
-		log.Println("result after join", outDir)
+		msgln("result after join", outDir)
 	}
 
-	builder := &FFBuilder{in: inDir, out: outDir, script: script}
+	builder := &FFBuilder{in: inDir, out: outDir, script: script, isH264: isH264}
+
 	// build folder information
 	_, err = Build(inDir, outDir, script, builder, write, verbose)
 
 	if err != nil {
 		log.Fatalln(err)
+	}
+}
+
+func msgf(format string, args ...any) {
+	if verbose {
+		log.Printf(format, args...)
+	}
+}
+
+func msgln(args ...any) {
+	if verbose {
+		log.Println(args...)
 	}
 }
