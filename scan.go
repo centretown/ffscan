@@ -105,13 +105,15 @@ func Build(inputBase, outputBase, scriptName string,
 	}
 
 	cmd := sb.String()
-	fmt.Print(cmd)
+	msgln(cmd)
 	if IsWindows {
 		scriptName += ".cmd"
 	}
 	msgf("write script '%s' Windows?=%v\n", scriptName, IsWindows)
+
 	err = os.WriteFile(scriptName, []byte(cmd), os.ModeAppend|os.ModePerm)
 	if err != nil {
+		log.Fatal(err)
 		return
 	}
 

@@ -48,7 +48,7 @@ func main() {
 
 	flag.Parse()
 	flag.VisitAll(func(f *flag.Flag) {
-		fmt.Printf("%s=%v\n", f.Name, f.Value)
+		fmt.Printf("%s: %s=%v\n", f.Usage, f.Name, f.Value)
 	})
 
 	// in folder is current working directory
@@ -76,14 +76,17 @@ func main() {
 
 	// ensure absolute output folder
 	if !filepath.IsAbs(outDir) {
-		msgln(CurrentDir, outDir)
 		outDir = filepath.Join(CurrentDir, outDir)
-		msgln("result after join", outDir)
+		msgln("absolute path after join", outDir)
 	}
 
-	builder := &FFBuilder{in: inDir, out: outDir, script: script, isH264: isH264}
+	builder := &FFBuilder{
+		in:     inDir,
+		out:    outDir,
+		script: script,
+		isH264: isH264,
+	}
 
-	// build folder information
 	_, err = Build(inDir, outDir, script, builder, write, verbose)
 
 	if err != nil {
